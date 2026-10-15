@@ -1,0 +1,60 @@
+# SPARR Phase 2 (residual RL) image: Phase 1 plus JAX and vendored serl_launcher/agentlace.
+
+ARG BASE_IMAGE_REF=sparr-phase1:latest
+FROM ${BASE_IMAGE_REF}
+
+ARG JAX_VERSION
+ARG JAX_CUDA_EXTRA
+ARG FLAX_VERSION
+ARG DISTRAX_VERSION
+ARG OPTAX_VERSION
+ARG CHEX_VERSION
+ARG ORBAX_CHECKPOINT_VERSION
+ARG EINOPS_VERSION
+ARG GYMNASIUM_VERSION
+ARG MATPLOTLIB_VERSION
+ARG LZ4_VERSION
+ARG PYZMQ_VERSION
+ARG TENSORBOARD_VERSION
+ARG RESNET10_URL
+ARG RESNET10_SHA256
+
+USER root
+
+# One transaction so jax, jaxlib and the CUDA plugin resolve to matching versions.
+RUN pip install --no-cache-dir --break-system-packages \
+      "jax[${JAX_CUDA_EXTRA}]==${JAX_VERSION}" \
+      "flax==${FLAX_VERSION}" \
+      "distrax==${DISTRAX_VERSION}" \
+      "optax==${OPTAX_VERSION}" \
+      "chex==${CHEX_VERSION}" \
+      "orbax-checkpoint==${ORBAX_CHECKPOINT_VERSION}" \
+      "einops==${EINOPS_VERSION}" \
+      "gymnasium==${GYMNASIUM_VERSION}" \
+      "matplotlib==${MATPLOTLIB_VERSION}" \
+      "lz4==${LZ4_VERSION}" \
+      "pyzmq==${PYZMQ_VERSION}" \
+      "tensorboard==${TENSORBOARD_VERSION}"
+
+# On PYTHONPATH, not pip-installed: serl_launcher's wheel omits its namespace subpackages,
+# and both setup.py files pull opencv-python, which shadows the apt OpenCV cv_bridge needs.
+COPY serl_launcher /opt/sparr/serl_launcher
+COPY agentlace /opt/sparr/agentlace
+ENV PYTHONPATH=/opt/sparr/serl_launcher:/opt/sparr/agentlace:${PYTHONPATH}
+
+# World-readable: the container runs as the invoking user, not root.
+RUN mkdir -p /opt/sparr/cache \
+    && curl -fsSL -o /opt/sparr/cache/resnet10_params.pkl "${RESNET10_URL}" \
+    && echo "${RESNET10_SHA256}  /opt/sparr/cache/resnet10_params.pkl" | sha256sum -c - \
+    && chmod -R a+rX /opt/sparr
+
+ENV SPARR_RESNET10_PARAMS=/opt/sparr/cache/resnet10_params.pkl \
+    SPARR_PHASE2=1 \
+    XLA_PYTHON_CLIENT_PREALLOCATE=false
+
+# XLA_PYTHON_CLIENT_PREALLOCATE=false: JAX would otherwise reserve most VRAM, starving Torch.
+
+COPY docker/phase2/verify-phase2-env.py /opt/sparr/verify-phase2-env.py
+COPY docker/phase2/verify-transport.py /opt/sparr/verify-transport.py
+COPY docker/phase2/verify-control-budget.py /opt/sparr/verify-control-budget.py
+COPY docker/phase2/verify-online-loop.py /opt/sparr/verify-online-loop.py

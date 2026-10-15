@@ -1,0 +1,266 @@
+# syntax=docker/dockerfile:1.7
+#
+# SPARR Phase 1 runtime: Ubuntu 26.04 + ROS 2 Lyrical, Flexiv driver/RDK from
+# pinned source, Torch + RSL-RL, pyrealsense2.
+
+ARG BASE_IMAGE=ubuntu:26.04
+FROM ${BASE_IMAGE}
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+ARG BUILD_JOBS=8
+ARG ROS_DISTRO_LOCK=lyrical
+ARG UBUNTU_CODENAME=resolute
+ARG RMW_IMPLEMENTATION_LOCK=rmw_fastrtps_cpp
+ARG TORCH_INDEX_URL
+ARG TORCH_VERSION
+ARG RSL_RL_VERSION
+ARG GITPYTHON_VERSION
+ARG PYREALSENSE2_VERSION
+ARG FLEXIV_ROS2_REPOSITORY
+ARG FLEXIV_ROS2_COMMIT
+ARG FLEXIV_RDK_COMMIT
+ARG SPARR_SOURCE_SHA256=unknown
+ARG BUILD_UTC=unknown
+
+LABEL org.opencontainers.image.title="SPARR Phase 1" \
+      org.opencontainers.image.description="ROS 2 Lyrical on Ubuntu 26.04, no Isaac ROS" \
+      ai.nvidia.sparr.ros.distro="${ROS_DISTRO_LOCK}" \
+      ai.nvidia.sparr.ros.rmw="${RMW_IMPLEMENTATION_LOCK}" \
+      ai.nvidia.sparr.flexiv_ros2.revision="${FLEXIV_ROS2_COMMIT}" \
+      ai.nvidia.sparr.flexiv_rdk.revision="${FLEXIV_RDK_COMMIT}"
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8
+
+# ---- ROS 2 Lyrical from the official apt repository -------------------------
+RUN set -e; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+      ca-certificates curl gnupg locales software-properties-common; \
+    locale-gen en_US en_US.UTF-8; \
+    curl -fsSL -o /tmp/ros2-apt-source.deb \
+      "https://github.com/ros-infrastructure/ros-apt-source/releases/download/1.2.0/ros2-apt-source_1.2.0.${UBUNTU_CODENAME}_all.deb"; \
+    apt-get install -y /tmp/ros2-apt-source.deb; \
+    rm -f /tmp/ros2-apt-source.deb; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+      "ros-${ROS_DISTRO_LOCK}-ros-base" \
+      "ros-${ROS_DISTRO_LOCK}-rclpy" \
+      "ros-${ROS_DISTRO_LOCK}-cv-bridge" \
+      "ros-${ROS_DISTRO_LOCK}-sensor-msgs" \
+      "ros-${ROS_DISTRO_LOCK}-geometry-msgs" \
+      "ros-${ROS_DISTRO_LOCK}-diagnostic-msgs" \
+      "ros-${ROS_DISTRO_LOCK}-std-srvs" \
+      "ros-${ROS_DISTRO_LOCK}-ros2launch" \
+      "ros-${ROS_DISTRO_LOCK}-rmw-fastrtps-cpp" \
+      "ros-${ROS_DISTRO_LOCK}-ros2-control" \
+      "ros-${ROS_DISTRO_LOCK}-ros2-controllers" \
+      "ros-${ROS_DISTRO_LOCK}-controller-manager" \
+      "ros-${ROS_DISTRO_LOCK}-controller-interface" \
+      "ros-${ROS_DISTRO_LOCK}-hardware-interface" \
+      "ros-${ROS_DISTRO_LOCK}-joint-state-broadcaster" \
+      "ros-${ROS_DISTRO_LOCK}-joint-state-publisher" \
+      "ros-${ROS_DISTRO_LOCK}-robot-state-publisher" \
+      "ros-${ROS_DISTRO_LOCK}-xacro" \
+      "ros-${ROS_DISTRO_LOCK}-angles" \
+      "ros-${ROS_DISTRO_LOCK}-control-msgs" \
+      "ros-${ROS_DISTRO_LOCK}-control-toolbox" \
+      "ros-${ROS_DISTRO_LOCK}-realtime-tools" \
+      "ros-${ROS_DISTRO_LOCK}-generate-parameter-library" \
+      "ros-${ROS_DISTRO_LOCK}-backward-ros" \
+      "ros-${ROS_DISTRO_LOCK}-ament-cmake" \
+      "ros-${ROS_DISTRO_LOCK}-ament-cmake-target-dependencies" \
+      "ros-${ROS_DISTRO_LOCK}-ros2cli-common-extensions" \
+      python3-colcon-common-extensions python3-rosdep python3-vcstool \
+      build-essential cmake git pkg-config wget unzip \
+      python3-pip python3-dev python3-numpy python3-yaml \
+      python3-h5py libhdf5-dev liblzf-dev \
+      libssl-dev libusb-1.0-0-dev libudev-dev; \
+    rm -rf /var/lib/apt/lists/*
+
+# ---- Python packages --------------------------------------------------------
+# System interpreter (not a venv) so the apt rclpy/cv_bridge stay importable.
+# numpy stays the apt build: cv_bridge is compiled against it.
+RUN set -e; \
+    python3 -m pip install --no-cache-dir --break-system-packages \
+      --index-url "${TORCH_INDEX_URL}" \
+      --extra-index-url https://pypi.org/simple \
+      "torch==${TORCH_VERSION}"; \
+    # torch is named again so rsl-rl-lib's unbounded torch requirement keeps the pin.
+    python3 -m pip install --no-cache-dir --break-system-packages \
+      --extra-index-url "${TORCH_INDEX_URL}" \
+      "torch==${TORCH_VERSION}" \
+      "rsl-rl-lib==${RSL_RL_VERSION}" \
+      "GitPython==${GITPYTHON_VERSION}" \
+      "pyrealsense2==${PYREALSENSE2_VERSION}"; \
+    installed=$(python3 -c 'import torch; print(torch.__version__)'); \
+    if [[ ${installed} != "${TORCH_VERSION}" ]]; then \
+      echo "ERROR: torch pin did not hold: wanted ${TORCH_VERSION}, got ${installed}" >&2; \
+      echo "       a later pip install (probably rsl-rl-lib) upgraded it." >&2; \
+      echo "       torch is named in that install to prevent exactly this;" >&2; \
+      echo "       if it still moved, a dependency now demands a newer torch." >&2; \
+      exit 1; \
+    fi; \
+    echo "torch pinned at ${installed}"
+
+COPY ament_target_dependencies_shim.cmake patch-flexiv-lyrical.py /opt/sparr/cmake/
+
+# ---- Flexiv stack from pinned sources ---------------------------------------
+# CMAKE_POLICY_VERSION_MINIMUM: CMake 4 rejects the < 3.5 minimums in vendored RDK deps.
+# -include cstdint / stdint.h: vendored yaml-cpp/Fast-DDS rely on GCC < 15 transitive includes.
+# patch-flexiv-lyrical.py adapts the Flexiv fork to Lyrical APIs.
+RUN set -e; \
+    export CMAKE_POLICY_VERSION_MINIMUM=3.5; \
+    export CXXFLAGS="${CXXFLAGS:-} -include cstdint"; \
+    export CFLAGS="${CFLAGS:-} -include stdint.h"; \
+    mkdir -p /opt/sparr/flexiv_ws/src; \
+    git init /opt/sparr/flexiv_ws/src/flexiv_ros2; \
+    git -C /opt/sparr/flexiv_ws/src/flexiv_ros2 remote add origin "${FLEXIV_ROS2_REPOSITORY}"; \
+    git -C /opt/sparr/flexiv_ws/src/flexiv_ros2 fetch --depth 1 origin "${FLEXIV_ROS2_COMMIT}"; \
+    git -C /opt/sparr/flexiv_ws/src/flexiv_ros2 checkout --detach FETCH_HEAD; \
+    git -C /opt/sparr/flexiv_ws/src/flexiv_ros2 submodule update --init --recursive; \
+    # RDK pinned independently of the fork submodule; it must match the robot firmware.
+    git -C /opt/sparr/flexiv_ws/src/flexiv_ros2/flexiv_hardware/rdk \
+      fetch --depth 1 origin "${FLEXIV_RDK_COMMIT}"; \
+    git -C /opt/sparr/flexiv_ws/src/flexiv_ros2/flexiv_hardware/rdk \
+      checkout --detach FETCH_HEAD; \
+    python3 /opt/sparr/cmake/patch-flexiv-lyrical.py /opt/sparr/flexiv_ws/src; \
+    source /opt/ros/${ROS_DISTRO_LOCK}/setup.bash; \
+    export FLEXIV_RDK_PREFIX=/opt/sparr/flexiv_rdk; \
+    rdk_src=/opt/sparr/flexiv_ws/src/flexiv_ros2/flexiv_hardware/rdk; \
+    if [ -f "${rdk_src}/thirdparty/scripts/install_yaml-cpp.sh" ]; then \
+      # RDK <= 1.9.3: wrap the static archive in a .so hiding its Fast-CDR 1 from Lyrical's Fast-CDR 2.
+      /opt/sparr/flexiv_ws/src/flexiv_ros2/scripts/build_and_install_rdk.sh \
+        "${FLEXIV_RDK_PREFIX}" "${BUILD_JOBS}"; \
+    else \
+      # RDK >= 1.9.4: shared library already hides its deps; symlink to the name the fork expects.
+      cmake -S "${rdk_src}" -B /tmp/rdk_build \
+        -DCMAKE_INSTALL_PREFIX="${FLEXIV_RDK_PREFIX}" \
+        -DCMAKE_BUILD_TYPE=Release; \
+      cmake --build /tmp/rdk_build --parallel "${BUILD_JOBS}"; \
+      cmake --install /tmp/rdk_build; \
+      ln -sf libflexiv_rdk.so \
+        "${FLEXIV_RDK_PREFIX}/lib/libflexiv_rdk_lyrical.so"; \
+      # Check the RDK API is exported and no private DDS symbols leak.
+      wrapper="${FLEXIV_RDK_PREFIX}/lib/libflexiv_rdk_lyrical.so"; \
+      # grep -c, not -q: under pipefail, -q's early exit SIGPIPEs nm/c++filt.
+      symbols=$(nm -D --defined-only "${wrapper}" | c++filt \
+                  | grep -c "flexiv::rdk" || true); \
+      private=$(nm -D --defined-only "${wrapper}" | c++filt \
+                  | grep -cE "eprosima|fastcdr|fastdds" || true); \
+      echo "RDK wrapper: ${symbols} flexiv::rdk symbols, ${private} private DDS symbols"; \
+      if [ "${symbols}" -eq 0 ]; then \
+        echo "ERROR: installed RDK does not export the Flexiv RDK API" >&2; \
+        exit 1; \
+      fi; \
+      if [ "${private}" -ne 0 ]; then \
+        echo "ERROR: installed RDK leaks ${private} private DDS symbols" >&2; \
+        exit 1; \
+      fi; \
+      rm -rf /tmp/rdk_build; \
+    fi; \
+    cd /opt/sparr/flexiv_ws; \
+    colcon --log-base /tmp/flexiv_log build \
+      --base-paths src \
+      --build-base /tmp/flexiv_build \
+      --install-base /opt/sparr/flexiv_ws/install \
+      --merge-install \
+      --parallel-workers "${BUILD_JOBS}" \
+      --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF \
+      --packages-up-to flexiv_bringup cartesian_motion_controller \
+        flexiv_robot_states_broadcaster; \
+    source /opt/sparr/flexiv_ws/install/setup.bash; \
+    for package in flexiv_msgs flexiv_bringup flexiv_hardware \
+      flexiv_robot_states_broadcaster cartesian_motion_controller; do \
+      ros2 pkg prefix "${package}" >/dev/null; \
+    done; \
+    LD_LIBRARY_PATH="/opt/sparr/flexiv_rdk/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" \
+      ldd -r /opt/sparr/flexiv_ws/install/lib/libflexiv_hardware.so \
+      > /tmp/flexiv_hardware_ldd.txt; \
+    ! grep -Eq 'not found|undefined symbol' /tmp/flexiv_hardware_ldd.txt; \
+    rm -rf /opt/sparr/flexiv_ws/src /tmp/flexiv_build /tmp/flexiv_log \
+      /tmp/flexiv_hardware_ldd.txt
+
+# ---- SPARR package -----------------------------------------------------------
+# The base policy is NOT baked in: it is read at run time from the mounted
+# repository (policy: in phase1_live.yaml), and its sha256 is recorded with
+# every recording. Swapping policies never needs an image rebuild.
+COPY --from=sparr_package / /opt/sparr/ros2_ws/src/sparr_phase1_collection/
+
+RUN set -e; \
+    source /opt/ros/${ROS_DISTRO_LOCK}/setup.bash; \
+    source /opt/sparr/flexiv_ws/install/setup.bash; \
+    cd /opt/sparr; \
+    colcon --log-base /tmp/sparr_log build \
+      --base-paths ros2_ws/src \
+      --packages-select sparr_phase1_collection \
+      --build-base /tmp/sparr_build \
+      --install-base /opt/sparr/install \
+      --merge-install; \
+    source /opt/sparr/install/setup.bash; \
+    PYTHONDONTWRITEBYTECODE=1 python3 -m pytest -q -p no:cacheprovider \
+      --basetemp=/tmp/sparr_pytest \
+      /opt/sparr/ros2_ws/src/sparr_phase1_collection/test/unit; \
+    rm -rf /tmp/sparr_build /tmp/sparr_log /tmp/sparr_pytest
+
+# ---- ABI smoke test ---------------------------------------------------------
+# cv_bridge round trip fails if pip shadowed the apt OpenCV or numpy.
+RUN source /opt/ros/${ROS_DISTRO_LOCK}/setup.bash; python3 - <<'PY'
+import h5py, numpy as np, tempfile, torch
+import pyrealsense2 as rs
+from cv_bridge import CvBridge
+from rsl_rl.modules import ActorCritic, ActorCriticRecurrent
+
+bridge = CvBridge()
+rgb = np.zeros((8, 8, 3), dtype=np.uint8)
+message = bridge.cv2_to_imgmsg(rgb, encoding="rgb8")
+assert np.array_equal(rgb, bridge.imgmsg_to_cv2(message, desired_encoding="rgb8"))
+
+with tempfile.NamedTemporaryFile(suffix=".h5") as stream:
+    with h5py.File(stream.name, "w") as out:
+        out.create_dataset("rgb", data=rgb, compression="lzf")
+    with h5py.File(stream.name, "r") as src:
+        assert np.array_equal(src["rgb"][:], rgb)
+
+assert ActorCritic.__name__ == "ActorCritic"
+assert ActorCriticRecurrent.__name__ == "ActorCriticRecurrent"
+assert hasattr(rs, "pipeline") and hasattr(rs, "config")
+print(f"torch {torch.__version__} | numpy {np.__version__} | "
+      f"librealsense {rs.__version__}")
+PY
+
+RUN python3 -m pip check
+
+COPY entrypoint.sh /usr/local/lib/sparr-image/entrypoint.sh
+RUN chmod 0755 /usr/local/lib/sparr-image/entrypoint.sh; \
+    mkdir -p /etc/sparr; \
+    printf '%s\n' \
+      '{' \
+      "  \"build_utc\": \"${BUILD_UTC}\"," \
+      "  \"base_image\": \"${BASE_IMAGE}\"," \
+      "  \"ubuntu_codename\": \"${UBUNTU_CODENAME}\"," \
+      "  \"ros_distro\": \"${ROS_DISTRO_LOCK}\"," \
+      "  \"rmw_implementation\": \"${RMW_IMPLEMENTATION_LOCK}\"," \
+      "  \"torch_version\": \"${TORCH_VERSION}\"," \
+      "  \"rsl_rl_version\": \"${RSL_RL_VERSION}\"," \
+      "  \"pyrealsense2_version\": \"${PYREALSENSE2_VERSION}\"," \
+      "  \"flexiv_ros2_commit\": \"${FLEXIV_ROS2_COMMIT}\"," \
+      "  \"flexiv_rdk_commit\": \"${FLEXIV_RDK_COMMIT}\"," \
+      "  \"sparr_source_sha256\": \"${SPARR_SOURCE_SHA256}\"," \
+      "  \"isaac_ros\": false" \
+      '}' > /etc/sparr/build-manifest.json
+
+ENV FLEXIV_RDK_PREFIX=/opt/sparr/flexiv_rdk \
+    PYTHONDONTWRITEBYTECODE=1 \
+    RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION_LOCK} \
+    SPARR_IMAGE_MANIFEST=/etc/sparr/build-manifest.json \
+    SPARR_RMW_IMPLEMENTATION_LOCK=${RMW_IMPLEMENTATION_LOCK} \
+    SPARR_ROS_DISTRO_LOCK=${ROS_DISTRO_LOCK} \
+    SPARR_ROOT=/opt/sparr
+
+WORKDIR /opt/sparr
+STOPSIGNAL SIGINT
+ENTRYPOINT ["/usr/local/lib/sparr-image/entrypoint.sh"]
+CMD ["bash"]

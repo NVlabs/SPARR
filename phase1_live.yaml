@@ -1,0 +1,153 @@
+# SPARR Phase 1 configuration: the robot, the base policy, the cameras, the
+# success check, the per-trial randomization and the reset between trials.
+# Phase 2 loads this file unchanged and layers phase2_live.yaml on top.
+
+robot:
+  # Your robot's serial. The state topic is derived from it
+  # (/Rizon4s_<number>/flexiv_robot_states); set state_topic only to override.
+  serial: Rizon4s-063459
+  command_topic: /cartesian_motion_controller/command
+  world_frame: world
+  policy_body: flange
+  controller_body: tcp
+  max_state_age_ms: 20.0
+
+policy:
+  # Base policy: RSL-RL checkpoint and its params/ yamls. Relative paths are
+  # resolved against the repository root.
+  checkpoint: taskspace_physx/uncalib_none_g4_m950/model_950.pt
+  agent_yaml: taskspace_physx/uncalib_none_g4_m950/params/agent.yaml
+  env_yaml: taskspace_physx/uncalib_none_g4_m950/params/env.yaml
+  device: cuda:0
+  control_rate_hz: 15.0
+  action_scale_multiplier: 1.0
+  # true: sample actions (required for demonstrations). false: use the mean.
+  stochastic: true
+  torch_seed: 0
+  # Required when control_rate_hz differs from the checkpoint's training rate.
+  control_rate_mismatch_reason: >-
+    deliberate 15 Hz experiment; position_scale doubled to 0.00625 to hold
+    commanded velocity constant. LSTM recurrent dynamics are uncompensated.
+
+socket:
+  # Pose of the socket OPENING (where the plug enters) in the world frame,
+  # [x, y, z, qx, qy, qz, qw]; the success reference. Enter the pose you
+  # measured at the opening; the socket root is derived from it automatically.
+  opening_pose_world_xyzw: [0.47625, 0.122, 0.071, 0.5, 0.5, 0.5, -0.5]
+  source: parameter
+
+randomization:
+  # Offsets are a function of (numpy_seed, trial index), so runs are repeatable.
+  numpy_seed: 0
+  # Start-pose randomization (+/- half range).
+  start:
+    xy_half_range_m: [0.0, 0.0]
+    z_half_range_m: 0.0
+    roll_half_range_rad: 0.0
+    pitch_half_range_rad: 0.0
+    yaw_half_range_rad: 0.0
+  # Noise on the socket pose given to the policy; success uses the true pose.
+  socket_policy_observation:
+    xy_half_range_m: [0.0, 0.0]
+    z_half_range_m: 0.0
+    roll_half_range_rad: 0.0
+    pitch_half_range_rad: 0.0
+    yaw_half_range_rad: 0.0
+
+success:
+  # Per-axis tool-to-socket keypoint tolerance. The tool keypoint sits ~4 cm
+  # behind the plug tip, so a seated plug reads |dz| ~= 40 mm.
+  metric: eef_keypoint_to_socket_keypoint_axis_tolerances
+  axis_tolerances_m: [0.008, 0.008, 0.041]
+  distance_threshold_m: null
+  # Consecutive steps inside tolerance before success fires.
+  hold_steps: 3
+  # Steps to keep inserting after success fires, so the plug ends fully seated.
+  post_success_steps: 15
+  # Confirm each outcome at the prompt.
+  require_operator_confirmation: true
+
+cameras:
+  # Serial, topics and frame_id must be unique per camera. calibration_id is
+  # derived as realsense-camera-info-<serial>-<W>x<H>-<encoding>-v1 unless set.
+  # Serials, topic names and crop_xywh below are specific to the reference rig.
+  wrist_1:
+    enabled: true
+    image_topic: /camera/camera/color/image_rect_raw
+    camera_info_topic: /camera/camera/color/camera_info
+    serial: 335122270518
+    frame_id: camera_color_optical_frame
+    extrinsics_file: null
+    encoding: rgb8
+    input_width: 848
+    input_height: 480
+    fps: 30.0
+    # Crop [x, y, w, h], then resize to output_width x output_height.
+    crop_xywh: [254, 0, 424, 480]
+    output_width: 256
+    output_height: 256
+    qos: reliable
+    # Oldest frame accepted at a control tick.
+    max_age_ms: 120.0
+  wrist_2:
+    enabled: true
+    image_topic: /camera/wrist_2/color/image_rect_raw
+    camera_info_topic: /camera/wrist_2/color/camera_info
+    serial: 335122272630
+    frame_id: wrist_2_color_optical_frame
+    extrinsics_file: null
+    encoding: rgb8
+    input_width: 848
+    input_height: 480
+    fps: 30.0
+    crop_xywh: [170, 0, 424, 480]
+    output_width: 256
+    output_height: 256
+    qos: reliable
+    max_age_ms: 120.0
+
+recording:
+  # One .h5 per session; relative to the repository root.
+  output_directory: data/phase1
+  target_successes: 500
+  # Rollout time limit; a trial that has not succeeded by then fails.
+  trial_timeout_s: 10.0
+  writer_queue_size: 128
+  flush_every_steps: 1
+  image_compression: lzf
+  # Also store the uncropped frames (about 5x the disk).
+  record_source_frames: true
+  preserve_all_attempts: true
+
+synchronization:
+  # Max timestamp gap between the two cameras' frames at one tick.
+  max_camera_pair_skew_ms: 35.0
+  # Both cameras on one clock, so the skew check is meaningful.
+  camera_timestamp_source: global_time
+
+trial_control:
+  # Reset between trials: retract, move to the (randomized) start, settle.
+  retraction_offset_world_m: [0.0, 0.0, 0.0]
+  # Vertical lift before any lateral motion, to pull the plug out axially.
+  retraction_clearance_m: 0.030
+  # Align the tool with the socket axis (about the plug tip) before lifting.
+  level_before_retract: true
+  reposition_duration_s: 3.0
+  reposition_timeout_s: 5.0
+  settle_time_s: 1.0
+  input_hold_timeout_s: 1.0
+  # Tolerance for reaching the start pose.
+  position_tolerance_m: 0.0015
+  orientation_tolerance_rad: 0.001
+  stable_steps: 1
+  # Fail the rollout if the tool drifts this far laterally from the socket.
+  max_lateral_offset_m: 0.040
+
+runtime:
+  # shadow: record without commanding motion. Overridden by `session.sh collect`.
+  execution_mode: shadow
+  # Confirm separately before the reset and before running the policy.
+  require_start_confirmation: true
+  publish_goal_pose: true
+  goal_pose_topic: /goal_pose
+  diagnostics_topic: /sparr/phase1/diagnostics

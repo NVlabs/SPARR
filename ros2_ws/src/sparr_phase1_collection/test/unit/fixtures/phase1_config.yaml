@@ -1,0 +1,94 @@
+# Frozen Phase 1 config fixture for unit tests.
+robot:
+  serial: Rizon4s-063459
+  state_topic: /Rizon4s_063459/flexiv_robot_states
+  command_topic: /cartesian_motion_controller/command
+  world_frame: world
+  policy_body: flange
+  controller_body: tcp
+  max_state_age_ms: 20.0
+
+policy:
+  checkpoint: taskspace_physx/uncalib_none_g4_m950/model_950.pt
+  agent_yaml: taskspace_physx/uncalib_none_g4_m950/params/agent.yaml
+  env_yaml: taskspace_physx/uncalib_none_g4_m950/params/env.yaml
+  device: cuda:0
+  control_rate_hz: 30.0
+  action_scale_multiplier: 1.0
+  stochastic: true
+  torch_seed: 0
+
+socket:
+  opening_pose_world_xyzw: [0.473, 0.121, 0.071, 0.5, 0.5, 0.5, -0.5]
+  source: parameter
+
+randomization:
+  numpy_seed: 0
+  start:
+    xy_half_range_m: [0.005, 0.005]
+    z_half_range_m: 0.0
+    roll_half_range_rad: 0.0
+    pitch_half_range_rad: 0.0
+    yaw_half_range_rad: 0.0
+  socket_policy_observation:
+    xy_half_range_m: [0.005, 0.005]
+    z_half_range_m: 0.0
+    roll_half_range_rad: 0.0
+    pitch_half_range_rad: 0.0
+    yaw_half_range_rad: 0.0
+
+success:
+  metric: flange_to_socket_root_position_l2
+  distance_threshold_m: 0.01
+  hold_steps: 1
+  require_operator_confirmation: true
+
+cameras:
+  wrist_1:
+    enabled: true
+    image_topic: /camera/camera/color/image_rect_raw 
+    camera_info_topic: /camera/camera/color/camera_info
+    serial: 335122270518
+    frame_id: camera_color_optical_frame
+    calibration_id: realsense-camera-info-335122270518-848x480-rgb8-v1
+    extrinsics_file: null
+    encoding: rgb8
+    input_width: 848
+    input_height: 480
+    fps: 30.0
+    crop_xywh: [0, 0, 848, 480]
+    output_width: 128
+    output_height: 128
+    qos: reliable
+    max_age_ms: 50.0
+  wrist_2:
+    enabled: false
+
+recording:
+  output_directory: /data
+  target_successes: 20
+  trial_timeout_s: 10.0
+  writer_queue_size: 128
+  flush_every_steps: 1
+  image_compression: lzf
+  preserve_all_attempts: true
+
+synchronization:
+  max_camera_pair_skew_ms: 50.0
+
+trial_control:
+  retraction_offset_world_m: [0.0, 0.0, 0.01]
+  reposition_duration_s: 3.0
+  reposition_timeout_s: 8.0
+  settle_time_s: 2.0
+  input_hold_timeout_s: 1.0
+  position_tolerance_m: 0.001
+  orientation_tolerance_rad: 0.001
+  stable_steps: 1
+
+runtime:
+  execution_mode: shadow
+  require_start_confirmation: true
+  publish_goal_pose: true
+  goal_pose_topic: /goal_pose
+  diagnostics_topic: /sparr/phase1/diagnostics

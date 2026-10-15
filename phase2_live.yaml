@@ -1,0 +1,60 @@
+# SPARR Phase 2 (residual policy) configuration, layered on phase1_live.yaml.
+# Set up for training; `session.sh eval` overrides the runtime section itself.
+
+residual:
+  # Cameras the residual observes.
+  image_keys: [wrist_1, wrist_2]
+
+  # State terms the residual observes, concatenated in this order. Changing
+  # image_keys or state_terms requires re-exporting demos and a new run.
+  state_terms:
+    flange_pose: true    #  7  position + quaternion (xyzw), world frame
+    wrench: true         #  6  external force/torque at the TCP
+    base_mean: true      #  6  the base policy's raw pre-clip mean
+    socket_pose: false   #  7  ablation only
+    #                      19  total with the defaults above
+
+  # Once the windowed success rate reaches the threshold, replay a failed
+  # attempt under identical conditions until it succeeds, then promote it.
+  retry:
+    enabled: true
+    success_rate_threshold: 0.7   # windowed rate at which replaying begins
+    window: 20                    # attempts in the window; replays excluded
+    max_repeats: 5                # replays of one attempt before moving on
+    promote_on_success: true      # promote the success that ends a replay
+
+  runtime:
+    # active: add the residual to the base action. shadow: record it only.
+    mode: active
+
+    # Scale applied to the residual before it is added to the base mean.
+    action_scale: 0.5
+
+    # false: sample the residual (training). true: use its mean.
+    deterministic: false
+    seed: 0
+
+    # Optional exported actor params to start from; unset trains from scratch.
+    params_path:
+    # Re-read params_path every N control ticks; 0 disables.
+    params_poll_ticks: 0
+
+    # Learner connection (ZeroMQ).
+    learner_host: localhost
+    learner_port: 5588
+    learner_broadcast_port: 5589
+    # Required when training from scratch, so an untrained residual is never
+    # commanded without a learner connected.
+    wait_for_learner: true
+    learner_timeout_ms: 3000
+    actor_queue_capacity: 50000
+
+    # Abort a trial after this many consecutive residual inference failures.
+    max_consecutive_failures: 30
+
+    # Promote successful episodes no longer than the median demonstration
+    # length. Seed lengths are printed by `session.sh demos`.
+    promote_episodes: true
+    promotion_seed_lengths:
+      [40, 41, 41, 41, 41, 41, 41, 41, 42, 42, 42, 42, 42, 43, 43, 43, 43, 44,
+       44, 44, 44, 44, 44, 45, 45, 45, 46, 46, 46, 47, 49]

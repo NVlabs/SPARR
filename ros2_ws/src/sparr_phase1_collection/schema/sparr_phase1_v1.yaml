@@ -1,0 +1,240 @@
+schema:
+  name: sparr_phase1
+  version: 1.0.0
+  file_suffix:
+    in_progress: .partial.h5
+    complete: .h5
+  row_model:
+    observations: N
+    actions: M
+    complete_trial_invariant: N == M + 1
+    action_mapping:
+      observation_index: i
+      next_observation_index: i + 1
+  conventions:
+    pose: world pose [x,y,z,qx,qy,qz,qw]
+    action: normalized [dx,dy,dz,rx,ry,rz]
+    translation_composition: world-frame addition
+    rotation_composition: world-frame rotvec left-multiplied onto observed flange
+    image_storage: cropped RGB uint8 only; full-resolution images are forbidden
+    canonical_label: effective_software_action_normalized - same-step raw policy mean
+
+root_attributes:
+  required:
+    schema_name: sparr_phase1
+    schema_version: 1.0.0
+    session_uuid: string
+    created_utc: ISO-8601 string
+    closed_cleanly: bool
+    pose_convention: string
+    action_convention: string
+    image_storage: cropped_rgb_uint8_only
+    image_height: integer
+    image_width: integer
+    image_channels: 3
+    training_action_clip: positive float copied from the resolved training YAML
+  recommended:
+    completed_utc: ISO-8601 string
+    git_commit: string
+    git_dirty: bool
+    robot_serial: string
+    ros_distro: string
+    architecture: string
+    checkpoint_sha256: string
+    agent_yaml_sha256: string
+    env_yaml_sha256: string
+    enabled_cameras: 'UTF-8 JSON list: ["wrist_1"] or ["wrist_1","wrist_2"]'
+    camera_count: 1 or 2
+
+named_metadata:
+  metadata:
+    description: Arbitrary named scalar or array provenance supplied by the collector.
+    recommended:
+      resolved_config_yaml: UTF-8 scalar
+      checkpoint_path: UTF-8 scalar
+      checkpoint_sha256: UTF-8 scalar
+      agent_yaml: UTF-8 scalar
+      agent_yaml_sha256: UTF-8 scalar
+      env_yaml: UTF-8 scalar
+      env_yaml_sha256: UTF-8 scalar
+      software_versions_json: UTF-8 scalar
+      topic_manifest_json: UTF-8 scalar
+      random_seeds_json: UTF-8 scalar
+  calibration:
+    recommended:
+      socket_pose_supplied_world_xyzw: [7]
+      socket_root_exact_world_xyzw: [7]
+      socket_root_policy_world_xyzw: [7]
+      socket_keypoint_exact_world_xyzw: [7]
+      socket_keypoint_policy_world_xyzw: [7]
+      flange_to_policy_eef_xyzw: [7]
+      flange_to_controller_tcp_xyzw: [7]
+      taught_reset_flange_pose_world_xyzw: [7]
+
+trial_attributes:
+  required:
+    trial_uuid: string
+    attempt_index: integer
+    complete: bool
+    accepted: bool
+    operator_label: string
+    auto_outcome: string
+    termination_reason: string
+    start_utc: ISO-8601 string
+  on_finish:
+    end_utc: ISO-8601 string
+    accepted_success_index: integer
+    reset_randomization_xyz_yaw: [4]
+
+datasets:
+  observations:
+    timing:
+      ros_stamp_ns: {dtype: int64, shape: [N], required: true, unit: ns}
+      robot_stamp_ns: {dtype: int64, shape: [N], required: true, unit: ns}
+      monotonic_receive_ns: {dtype: int64, shape: [N], required: true, unit: ns}
+      control_tick_monotonic_ns: {dtype: int64, shape: [N], unit: ns}
+      wrist_1_stamp_ns: {dtype: int64, shape: [N], unit: ns}
+      wrist_2_stamp_ns: {dtype: int64, shape: [N], unit: ns}
+      wrist_1_age_ns: {dtype: int64, shape: [N], unit: ns}
+      wrist_2_age_ns: {dtype: int64, shape: [N], unit: ns}
+      camera_skew_ns: {dtype: int64, shape: [N], unit: ns}
+    validity:
+      robot_state: {dtype: bool, shape: [N], required: true}
+      wrist_1: {dtype: bool, shape: [N], required: true}
+      wrist_2: {dtype: bool, shape: [N]}
+      policy_input: {dtype: bool, shape: [N], required: true}
+    camera:
+      wrist_1/rgb:
+        dtype: uint8
+        shape: [N, H, W, 3]
+        required: true
+        constraint: cropped RGB only
+      wrist_2/rgb:
+        dtype: uint8
+        shape: [N, H, W, 3]
+        constraint: cropped RGB only
+    robot:
+      flange_pose_world_xyzw: {dtype: float64, shape: [N, 7], required: true}
+      tcp_pose_world_xyzw: {dtype: float64, shape: [N, 7], required: true}
+      q: {dtype: float64, shape: [N, 7], required: true, unit: rad}
+      theta: {dtype: float64, shape: [N, 7], unit: rad}
+      dq: {dtype: float64, shape: [N, 7], required: true, unit: rad/s}
+      dtheta: {dtype: float64, shape: [N, 7], unit: rad/s}
+      tau: {dtype: float64, shape: [N, 7], unit: Nm}
+      tau_des: {dtype: float64, shape: [N, 7], unit: Nm}
+      tau_dot: {dtype: float64, shape: [N, 7], unit: Nm/s}
+      tau_ext: {dtype: float64, shape: [N, 7], unit: Nm}
+      tau_interact: {dtype: float64, shape: [N, 7], unit: Nm}
+      temperature: {dtype: float64, shape: [N, 7], unit: degC}
+      tcp_velocity_world: {dtype: float64, shape: [N, 6]}
+      ft_sensor_raw_flange: {dtype: float64, shape: [N, 6], unit: N,Nm}
+      ext_wrench_tcp: {dtype: float64, shape: [N, 6], required: true, unit: N,Nm}
+      ext_wrench_world: {dtype: float64, shape: [N, 6], unit: N,Nm}
+      ext_wrench_tcp_raw: {dtype: float64, shape: [N, 6], unit: N,Nm}
+      ext_wrench_world_raw: {dtype: float64, shape: [N, 6], unit: N,Nm}
+    task:
+      socket_pose_supplied_world_xyzw:
+        dtype: float64
+        shape: [N, 7]
+        description: Optional unmodified socket-pose provenance supplied to the run.
+      socket_root_exact_world_xyzw: {dtype: float64, shape: [N, 7], required: true}
+      socket_root_policy_world_xyzw: {dtype: float64, shape: [N, 7], required: true}
+      socket_keypoint_exact_world_xyzw: {dtype: float64, shape: [N, 7], required: true}
+      socket_keypoint_policy_world_xyzw: {dtype: float64, shape: [N, 7], required: true}
+      randomized_start_flange_world_xyzw: {dtype: float64, shape: [N, 7], required: true}
+      flange_to_socket_root_exact_distance_m: {dtype: float64, shape: [N], required: true, unit: m}
+      eef_keypoint_to_socket_keypoint_distance_m:
+        dtype: float64
+        shape: [N]
+        unit: m
+        description: >-
+          Optional L2 distance from the flange-local EEF keypoint to the exact
+          socket keypoint, i.e. the two points the policy observes.
+    policy:
+      input: {dtype: float32, shape: [N, 18], required: true}
+      mu_raw_normalized:
+        dtype: float32
+        shape: [N, 6]
+        description: Optional observation-indexed mean for downstream actor inputs.
+
+  actions:
+    mapping:
+      observation_index: {dtype: int64, shape: [M], required: true}
+      next_observation_index: {dtype: int64, shape: [M], required: true}
+    policy:
+      mu_raw_normalized: {dtype: float32, shape: [M, 6], required: true}
+      std_raw_normalized: {dtype: float32, shape: [M, 6]}
+      sample_raw_normalized: {dtype: float32, shape: [M, 6], required: true}
+      sample_clipped_normalized:
+        dtype: float32
+        shape: [M, 6]
+        required: true
+        constraint: clip(sample_raw_normalized, -training_action_clip, training_action_clip)
+      sample_standard_normal: {dtype: float32, shape: [M, 6]}
+      recurrent_hidden_in: {dtype: float32, shape: [M, layers, hidden]}
+      recurrent_cell_in: {dtype: float32, shape: [M, layers, hidden]}
+      recurrent_hidden_out: {dtype: float32, shape: [M, layers, hidden]}
+      recurrent_cell_out: {dtype: float32, shape: [M, layers, hidden]}
+    action:
+      delta_scaled_pose_rel: {dtype: float64, shape: [M, 6], required: true}
+      requested_flange_target_world_xyzw: {dtype: float64, shape: [M, 7], required: true}
+      effective_software_flange_target_world_xyzw: {dtype: float64, shape: [M, 7], required: true}
+      submitted_controller_tcp_target_world_xyzw: {dtype: float64, shape: [M, 7], required: true}
+      effective_software_action_normalized:
+        dtype: float32
+        shape: [M, 6]
+        required: true
+        semantics: Effective software target, not controller acceptance or measured execution.
+      measured_next_normalized: {dtype: float32, shape: [M, 6]}
+      command_wrench: {dtype: float64, shape: [M, 6]}
+      command_velocity: {dtype: float64, shape: [M, 6]}
+      command_acceleration: {dtype: float64, shape: [M, 6]}
+      command_published: {dtype: bool, shape: [M], required: true}
+      guard_bitmask: {dtype: uint32, shape: [M], required: true}
+    timing:
+      step_start_monotonic_ns: {dtype: int64, shape: [M], required: true, unit: ns}
+      command_ros_stamp_ns: {dtype: int64, shape: [M], unit: ns}
+      inference_ns: {dtype: int64, shape: [M], required: true, unit: ns}
+      composition_ns: {dtype: int64, shape: [M], unit: ns}
+      publish_ns: {dtype: int64, shape: [M], required: true, unit: ns}
+      recorder_enqueue_ns: {dtype: int64, shape: [M], unit: ns}
+      writer_queue_depth: {dtype: int32, shape: [M]}
+
+  labels:
+    residual_effective_software_action_minus_raw_mean: {dtype: float32, shape: [M, 6], required: true}
+    residual_measured_minus_raw_mean: {dtype: float32, shape: [M, 6]}
+    command_valid: {dtype: bool, shape: [M], required: true}
+    measured_valid: {dtype: bool, shape: [M]}
+
+conditional_camera_requirements:
+  wrist_1:
+    enabled: always
+    required_datasets:
+      - observations/timing/wrist_1_stamp_ns
+      - observations/timing/wrist_1_age_ns
+      - observations/validity/wrist_1
+      - observations/camera/wrist_1/rgb
+  wrist_2:
+    enabled: when listed in the enabled_cameras root attribute
+    required_datasets:
+      - observations/timing/wrist_2_stamp_ns
+      - observations/timing/wrist_2_age_ns
+      - observations/validity/wrist_2
+      - observations/camera/wrist_2/rgb
+  two_camera_only:
+    required_datasets:
+      - observations/timing/camera_skew_ns
+  disabled_camera_rule: Datasets for disabled cameras must be absent, not zero-filled.
+
+extensions:
+  allowed_prefixes:
+    - observations/extra/
+    - actions/extra/
+    - labels/extra/
+  behavior:
+    - The first supplied value fixes dtype and tail shape.
+    - Missing rows are backfilled with a dtype-appropriate fill value.
+  forbidden_names:
+    - full_res
+    - full_resolution
+    - invented_gripper
