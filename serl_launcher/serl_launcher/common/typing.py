@@ -1,3 +1,4 @@
+# Modified for SPARR; see ../../SPARR_PATCHES.md for local changes.
 from typing import Any, Callable, Dict, Sequence, Union
 
 import flax

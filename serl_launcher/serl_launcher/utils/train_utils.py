@@ -1,3 +1,4 @@
+# Modified for SPARR; see ../../SPARR_PATCHES.md for local changes.
 import os
 import pickle as pkl
 from collections import defaultdict

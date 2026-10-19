@@ -1,4 +1,12 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026, NVIDIA CORPORATION. All rights reserved.
+#
+# NVIDIA CORPORATION and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto. Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA CORPORATION is strictly prohibited.
+
 #
 # Runs inside the Phase 1 container: puts the bind-mounted package ahead of the baked-in copy.
 # Launch files and share/ still come from the image or the `session.sh rebuild` overlay.

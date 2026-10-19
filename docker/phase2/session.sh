@@ -1,4 +1,12 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026, NVIDIA CORPORATION. All rights reserved.
+#
+# NVIDIA CORPORATION and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto. Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA CORPORATION is strictly prohibited.
+
 #
 # Phase 2 session: Phase 1 collection with a learned residual, plus the learner that trains it.
 # Same layout as docker/phase1/session.sh; must not run alongside a Phase 1 session.

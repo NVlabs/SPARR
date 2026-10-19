@@ -1,3 +1,4 @@
+# Modified for SPARR; see ../../SPARR_PATCHES.md for local changes.
 import functools
 from typing import Any, Callable, Dict, Mapping, Sequence, Tuple, Union, Optional
 

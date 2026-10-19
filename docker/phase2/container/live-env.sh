@@ -1,4 +1,12 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026, NVIDIA CORPORATION. All rights reserved.
+#
+# NVIDIA CORPORATION and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto. Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA CORPORATION is strictly prohibited.
+
 #
 # Runs inside the Phase 2 container: puts both bind-mounted packages on PYTHONPATH
 # (Phase 2 subclasses the Phase 1 collector). The vendored serl_launcher/agentlace are
