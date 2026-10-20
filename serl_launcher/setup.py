@@ -1,3 +1,4 @@
+# Modified for SPARR.
 from setuptools import setup, find_packages
 
 setup(
@@ -6,7 +7,7 @@ setup(
     description="library for rl experiments",
     url="https://github.com/rail-berkeley/serl",
     author="auth",
-    license="MIT",
+    license="Apache-2.0",
     install_requires=[
         "zmq",
         "typing",

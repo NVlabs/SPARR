@@ -1,3 +1,11 @@
+# Copyright (c) 2026, NVIDIA CORPORATION. All rights reserved.
+#
+# NVIDIA CORPORATION and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto. Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA CORPORATION is strictly prohibited.
+
 from glob import glob
 import os
 
@@ -25,7 +33,7 @@ setup(
     maintainer="SPARR Maintainers",
     maintainer_email="sparr-maintainers@example.com",
     description="SPARR Phase 1 data collection for Flexiv.",
-    license="Apache-2.0",
+    license="NVIDIA Software and Model Evaluation License",
     entry_points={
         "console_scripts": [
             "sparr_phase1_collector = sparr_phase1_collection.main:collector_main",

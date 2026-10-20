@@ -1,3 +1,13 @@
+<!--
+Copyright (c) 2026, NVIDIA CORPORATION. All rights reserved.
+
+NVIDIA CORPORATION and its licensors retain all intellectual property
+and proprietary rights in and to this software, related documentation
+and any modifications thereto. Any use, reproduction, disclosure or
+distribution of this software and related documentation without an express
+license agreement from NVIDIA CORPORATION is strictly prohibited.
+-->
+
 # SPARR: Simulation-based Policies with Asymmetric Real-world Residuals for Assembly
 
 Yijie Guo, Iretiayo Akinola, Lars Johannsmeier, Hugo Hadfield, Abhishek Gupta, Yashraj Narang
@@ -796,3 +806,12 @@ The residual learner builds on [HIL-SERL / SERL](https://github.com/rail-berkele
 The base policy runs with [RSL-RL](https://github.com/leggedrobotics/rsl_rl);
 the robot interface uses [flexiv_ros2](https://github.com/flexivrobotics/flexiv_ros2)
 and the [Flexiv RDK](https://github.com/flexivrobotics/flexiv_rdk).
+
+## License
+
+SPARR's NVIDIA-authored code, documentation, configuration, and hardware design
+are licensed under the [NVIDIA Software and Model Evaluation License](LICENSE).
+Vendored third-party components retain their own licenses; see
+[Third-party notices](THIRD_PARTY_NOTICES.md).
+
+For vulnerability reporting, see [Security Policy](SECURITY.md).

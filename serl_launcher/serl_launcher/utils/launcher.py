@@ -1,3 +1,4 @@
+# Modified for SPARR; see ../../SPARR_PATCHES.md for local changes.
 # !/usr/bin/env python3
 
 import jax

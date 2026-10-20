@@ -1,3 +1,4 @@
+# Modified for SPARR; see ../../SPARR_PATCHES.md for local changes.
 from typing import Dict, Iterable, Optional, Tuple
 
 import flax
