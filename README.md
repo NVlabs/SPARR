@@ -1,11 +1,9 @@
 <!--
 Copyright (c) 2026, NVIDIA CORPORATION. All rights reserved.
 
-NVIDIA CORPORATION and its licensors retain all intellectual property
-and proprietary rights in and to this software, related documentation
-and any modifications thereto. Any use, reproduction, disclosure or
-distribution of this software and related documentation without an express
-license agreement from NVIDIA CORPORATION is strictly prohibited.
+Licensed under the NVIDIA OneWay Noncommercial License (March 22, 2022).
+See the LICENSE file in the repository root for the full license text:
+https://developer.download.nvidia.com/licenses/NVIDIA-OneWay-Noncommercial-License-22Mar2022.pdf
 -->
 
 # SPARR: Simulation-based Policies with Asymmetric Real-world Residuals for Assembly
@@ -810,7 +808,8 @@ and the [Flexiv RDK](https://github.com/flexivrobotics/flexiv_rdk).
 ## License
 
 SPARR's NVIDIA-authored code, documentation, configuration, and hardware design
-are licensed under the [NVIDIA Software and Model Evaluation License](LICENSE).
+are licensed under the [NVIDIA OneWay Noncommercial License](LICENSE)
+([March 22, 2022 source](https://developer.download.nvidia.com/licenses/NVIDIA-OneWay-Noncommercial-License-22Mar2022.pdf)).
 Vendored third-party components retain their own licenses; see
 [Third-party notices](THIRD_PARTY_NOTICES.md).
 

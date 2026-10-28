@@ -1,11 +1,9 @@
 <!--
 Copyright (c) 2026, NVIDIA CORPORATION. All rights reserved.
 
-NVIDIA CORPORATION and its licensors retain all intellectual property
-and proprietary rights in and to this software, related documentation
-and any modifications thereto. Any use, reproduction, disclosure or
-distribution of this software and related documentation without an express
-license agreement from NVIDIA CORPORATION is strictly prohibited.
+Licensed under the NVIDIA OneWay Noncommercial License (March 22, 2022).
+See the LICENSE file in the repository root for the full license text:
+https://developer.download.nvidia.com/licenses/NVIDIA-OneWay-Noncommercial-License-22Mar2022.pdf
 -->
 
 # Third-party notices
@@ -20,7 +18,7 @@ replace the licenses of the following vendored components.
 
 Local modifications are described in [Agentlace's patch notes](agentlace/SPARR_PATCHES.md)
 and [SERL's patch notes](serl_launcher/SPARR_PATCHES.md). Existing third-party
-attributions are retained; NVIDIA proprietary headers are not applied to these
+attributions are retained; NVIDIA license headers are not applied to these
 vendored trees.
 
 ## SERL attribution
