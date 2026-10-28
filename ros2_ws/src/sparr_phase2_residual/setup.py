@@ -1,8 +1,7 @@
 # Copyright (c) 2026, NVIDIA CORPORATION. All rights reserved.
 #
-# Licensed under the NVIDIA OneWay Noncommercial License (March 22, 2022).
-# See the LICENSE file in the repository root for the full license text:
-# https://developer.download.nvidia.com/licenses/NVIDIA-OneWay-Noncommercial-License-22Mar2022.pdf
+# Licensed under the NVIDIA License.
+# See the LICENSE file in the repository root for the full license text.
 
 from glob import glob
 import os
@@ -28,7 +27,7 @@ setup(
     maintainer="SPARR Maintainers",
     maintainer_email="sparr-maintainers@example.com",
     description="SPARR Phase 2 residual training and inference.",
-    license="NVIDIA OneWay Noncommercial License",
+    license="NVIDIA License",
     entry_points={
         "console_scripts": [
             "sparr_phase2_make_demos = sparr_phase2_residual.demo_export:main",

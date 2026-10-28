@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026, NVIDIA CORPORATION. All rights reserved.
 #
-# Licensed under the NVIDIA OneWay Noncommercial License (March 22, 2022).
-# See the LICENSE file in the repository root for the full license text:
-# https://developer.download.nvidia.com/licenses/NVIDIA-OneWay-Noncommercial-License-22Mar2022.pdf
+# Licensed under the NVIDIA License.
+# See the LICENSE file in the repository root for the full license text.
 
 """Socket-level check of the actor/learner link over loopback.
 

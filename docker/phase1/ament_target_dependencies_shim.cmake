@@ -1,8 +1,7 @@
 # Copyright (c) 2026, NVIDIA CORPORATION. All rights reserved.
 #
-# Licensed under the NVIDIA OneWay Noncommercial License (March 22, 2022).
-# See the LICENSE file in the repository root for the full license text:
-# https://developer.download.nvidia.com/licenses/NVIDIA-OneWay-Noncommercial-License-22Mar2022.pdf
+# Licensed under the NVIDIA License.
+# See the LICENSE file in the repository root for the full license text.
 
 # Shim for ament_target_dependencies (removed in ROS 2 Lyrical), still called by the Flexiv fork.
 # Links ${pkg_TARGETS}, then pkg::pkg, then the legacy _INCLUDE_DIRS/_LIBRARIES variables.
