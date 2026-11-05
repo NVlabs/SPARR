@@ -189,7 +189,7 @@ time, not baked into the image, so changing them never needs a rebuild.
 **3. Add the base policy.** It is not in git. The base policy is an RSL-RL
 policy trained in simulation with Isaac Lab, published on NGC in the
 [Isaac ROS Manipulation assets](https://catalog.ngc.nvidia.com/orgs/nvidia/isaac/resources/isaac_ros_manipulation_assets/-/file-browser)
-(version **5.0.5**, the default latest version). Inside the asset it is under:
+(version **5.0.6**, the default latest version). Inside the asset it is under:
 
 ```
 isaac_ros_manipulation/displayport_insertion/flexiv_policy_torch/model_950.pt
