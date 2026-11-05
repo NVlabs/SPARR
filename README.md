@@ -153,7 +153,7 @@ find the repository relative to themselves, so nothing depends on the path.
 
 ```bash
 mkdir -p ~/workspaces && cd ~/workspaces
-git clone https://github.com/NVIDIA/SPARR.git sparr
+git clone https://github.com/NVlabs/SPARR.git sparr
 cd sparr
 git checkout release-r1-validation
 ```
